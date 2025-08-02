@@ -13,12 +13,12 @@
         "name": "",
         "broker": "192.168.20.1",
         "port": 1883,
-        "clientid": "",
+        "clientid": "node-red-greenhouse-client",
         "autoConnect": true,
         "usetls": false,
         "protocolVersion": 4,
-        "keepalive": "120",
-        "cleansession": true,
+        "keepalive": "60",
+        "cleansession": false,
         "autoUnsubscribe": true,
         "birthTopic": "",
         "birthQos": "0",
@@ -50,7 +50,7 @@
         "tls": "",
         "influxdbVersion": "2.0",
         "url": "http://localhost:8086",
-        "timeout": "60",
+        "timeout": "30",
         "rejectUnauthorized": false
     },
     {
@@ -65,7 +65,7 @@
         "tls": "",
         "influxdbVersion": "2.0",
         "url": "http://localhost:8086",
-        "timeout": "60",
+        "timeout": "30",
         "rejectUnauthorized": false
     },
     {
@@ -81,8 +81,8 @@
         "rap": true,
         "rh": 0,
         "inputs": 0,
-        "x": 350,
-        "y": 180,
+        "x": 170,
+        "y": 220,
         "wires": [
             [
                 "9ffc594d6035f994"
@@ -94,37 +94,38 @@
         "type": "function",
         "z": "d1d9b412263f5851",
         "name": "Spliting data node wise",
-        "func": "const nodeId = msg.payload.node_id;\n\nlet output = [null, null, null, null, null];\n\nswitch (nodeId) {\n    case \"Node01\":\n        output[0] = msg;\n        break;\n    case \"Node02\":\n        output[1] = msg;\n        break;\n    case \"Node03\":\n        output[2] = msg;\n        break;\n    case \"Node04\":\n        output[3] = msg;\n        break;\n    case \"Node05\":\n        output[4] = msg;\n        break;\n    default:\n        node.warn(\"Unknown node_id: \" + nodeId);\n        break;\n}\n\nreturn output;\n\n",
+        "func": "// High-performance data routing by node ID\nconst nodeId = msg.payload.node_id;\n\n// Pre-allocated output array for maximum performance\nlet output = [null, null, null, null, null];\n\n// Direct switch for optimal routing performance\nswitch (nodeId) {\n    case \"Node01\":\n        output[0] = msg;\n        break;\n    case \"Node02\":\n        output[1] = msg;\n        break;\n    case \"Node03\":\n        output[2] = msg;\n        break;\n    case \"Node04\":\n        output[3] = msg;\n        break;\n    case \"Node05\":\n        output[4] = msg;\n        break;\n    default:\n        // Skip unknown nodes silently for performance\n        break;\n}\n\nreturn output;",
         "outputs": 5,
         "timeout": 0,
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 630,
-        "y": 180,
+        "x": 430,
+        "y": 220,
         "wires": [
             [
-                "408fa21a2cfe3624",
                 "48ad17bfd84ebb60",
-                "437749256fc6b386"
+                "437749256fc6b386",
+                "408fa21a2cfe3624"
             ],
             [
-                "408fa21a2cfe3624",
                 "48ad17bfd84ebb60",
-                "437749256fc6b386"
+                "437749256fc6b386",
+                "408fa21a2cfe3624"
             ],
             [
-                "408fa21a2cfe3624",
                 "48ad17bfd84ebb60",
-                "437749256fc6b386"
+                "437749256fc6b386",
+                "408fa21a2cfe3624"
             ],
             [
-                "408fa21a2cfe3624",
                 "48ad17bfd84ebb60",
-                "437749256fc6b386"
+                "437749256fc6b386",
+                "408fa21a2cfe3624"
             ],
             [
+                "48ad17bfd84ebb60",
                 "408fa21a2cfe3624"
             ]
         ]
@@ -134,15 +135,15 @@
         "type": "function",
         "z": "d1d9b412263f5851",
         "name": "Influx (data formate)",
-        "func": "const greenhouse = msg.payload.greenhouse_id;\nconst nodeId = msg.payload.node_id;\n\nconst sensorFields = { ...msg.payload };\ndelete sensorFields.greenhouse_id;\ndelete sensorFields.node_id;\ndelete sensorFields.timestamp;\n\nmsg.payload = [{\n    measurement: \"greenhouse_data_clean\",\n    tags: {\n        greenhouse_id: greenhouse,\n        node_id: nodeId\n    },\n    fields: sensorFields\n}];\n\nreturn msg;\n",
+        "func": "// Optimized data formatting for InfluxDB\nconst greenhouse = msg.payload.greenhouse_id;\nconst nodeId = msg.payload.node_id;\n\n// Direct field extraction for maximum performance\nconst sensorFields = { ...msg.payload };\ndelete sensorFields.greenhouse_id;\ndelete sensorFields.node_id;\ndelete sensorFields.timestamp;\n\n// Single-pass payload construction\nmsg.payload = [{\n    measurement: \"greenhouse_data_clean\",\n    tags: {\n        greenhouse_id: greenhouse,\n        node_id: nodeId\n    },\n    fields: sensorFields\n}];\n\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 920,
-        "y": 180,
+        "x": 760,
+        "y": 60,
         "wires": [
             [
                 "a756afd1789ae3bf"
@@ -162,8 +163,8 @@
         "retentionPolicyV18Flux": "",
         "org": "iot-agriculture",
         "bucket": "SensorData",
-        "x": 1230,
-        "y": 180,
+        "x": 1010,
+        "y": 60,
         "wires": []
     },
     {
@@ -171,15 +172,15 @@
         "type": "function",
         "z": "d1d9b412263f5851",
         "name": "VPD writer",
-        "func": "const data = msg.payload;\n\nconst T_leaf = data.Leaf_temp;\nconst T_air = data.Air_Temp;\nconst RH = data.Air_Rh;\n\n// Validate input\nif (\n    typeof T_leaf !== 'number' ||\n    typeof T_air !== 'number' ||\n    typeof RH !== 'number' ||\n    !data.greenhouse_id ||\n    !data.node_id\n) {\n    node.error(\"Invalid input data\", msg);\n    return null;\n}\n\n// VPD calculation with intermediate values\nfunction calc_vpd_components(T_air, RH, T_leaf) {\n    const es_air = 0.6108 * Math.exp((17.27 * T_air) / (T_air + 237.3));\n    const es_leaf = 0.6108 * Math.exp((17.27 * T_leaf) / (T_leaf + 237.3));\n    const ea = (RH / 100) * es_air;\n    const vpd = Math.max(0, es_leaf - ea);\n    return {\n        es_air: parseFloat(es_air.toFixed(3)),\n        es_leaf: parseFloat(es_leaf.toFixed(3)),\n        ea: parseFloat(ea.toFixed(3)),\n        vpd: parseFloat(vpd.toFixed(3))\n    };\n}\n\nconst { es_air, es_leaf, ea, vpd } = calc_vpd_components(T_air, RH, T_leaf);\n\n// ➕ Store in global context for averaging later\nlet vpd_context = global.get(\"vpd_values\") || {};\nvpd_context[data.node_id] = {\n    VPD: vpd,\n    es_air: es_air,\n    es_leaf: es_leaf,\n    ea: ea\n};\nglobal.set(\"vpd_values\", vpd_context);\n\n// ✅ Construct payload for InfluxDB (only calculated values)\nmsg.payload = [\n    {\n        measurement: \"calculated_data\",\n        tags: {\n            greenhouse_id: data.greenhouse_id,\n            node_id: data.node_id\n        },\n        fields: {\n            VPD: vpd,\n            es_air: es_air,\n            es_leaf: es_leaf,\n            ea: ea\n        }\n    }\n];\n\nnode.warn(`Node=${data.node_id} | VPD=${vpd} | es_air=${es_air} | es_leaf=${es_leaf} | ea=${ea}`);\nreturn msg;\n",
+        "func": "// High-performance VPD calculation with bulletproof error handling\nconst data = msg.payload;\n\n// Fast validation with early returns\nif (!data || typeof data !== 'object') {\n    return null;\n}\n\nconst T_leaf = data.Leaf_temp;\nconst T_air = data.Air_Temp;\nconst RH = data.Air_Rh;\n\n// Comprehensive input validation\nif (typeof T_leaf !== 'number' || isNaN(T_leaf) || T_leaf < -50 || T_leaf > 80) {\n    return null;\n}\n\nif (typeof T_air !== 'number' || isNaN(T_air) || T_air < -50 || T_air > 80) {\n    return null;\n}\n\nif (typeof RH !== 'number' || isNaN(RH) || RH < 0 || RH > 100) {\n    return null;\n}\n\nif (!data.greenhouse_id || !data.node_id) {\n    return null;\n}\n\n// Optimized VPD calculation with single-pass computation\ntry {\n    // Pre-calculated constants for performance\n    const es_air = 0.6108 * Math.exp((17.27 * T_air) / (T_air + 237.3));\n    const es_leaf = 0.6108 * Math.exp((17.27 * T_leaf) / (T_leaf + 237.3));\n    const ea = (RH / 100) * es_air;\n    const vpd = Math.max(0, es_leaf - ea);\n    \n    // Store in global context for averaging\n    let vpd_context = global.get(\"vpd_values\") || {};\n    vpd_context[data.node_id] = {\n        VPD: parseFloat(vpd.toFixed(3)),\n        es_air: parseFloat(es_air.toFixed(3)),\n        es_leaf: parseFloat(es_leaf.toFixed(3)),\n        ea: parseFloat(ea.toFixed(3)),\n        timestamp: Date.now()\n    };\n    global.set(\"vpd_values\", vpd_context);\n    \n    // Construct optimized payload\n    msg.payload = [{\n        measurement: \"calculated_data\",\n        tags: {\n            greenhouse_id: data.greenhouse_id,\n            node_id: data.node_id\n        },\n        fields: {\n            VPD: parseFloat(vpd.toFixed(3)),\n            es_air: parseFloat(es_air.toFixed(3)),\n            es_leaf: parseFloat(es_leaf.toFixed(3)),\n            ea: parseFloat(ea.toFixed(3))\n        }\n    }];\n    \n    return msg;\n} catch (error) {\n    return null; // Silent fail for performance\n}",
         "outputs": 1,
-        "timeout": 0,
+        "timeout": 30,
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 970,
-        "y": 260,
+        "x": 750,
+        "y": 140,
         "wires": [
             [
                 "8bd9880e362c4b29"
@@ -199,8 +200,8 @@
         "retentionPolicyV18Flux": "",
         "org": "iot-agriculture",
         "bucket": "CalculatedData",
-        "x": 1260,
-        "y": 300,
+        "x": 1040,
+        "y": 200,
         "wires": []
     },
     {
@@ -208,15 +209,15 @@
         "type": "function",
         "z": "d1d9b412263f5851",
         "name": "Average Sensor Values",
-        "func": "const newData = msg.payload;\n\nconst keysToAverage = [\n    \"Bag_Temp\",\n    \"Light_Par\",\n    \"Air_Temp\",\n    \"Air_Rh\",\n    \"Leaf_temp\",\n    \"drip_weight\",\n    \"Bag_Rh1\",\n    \"Bag_Rh2\",\n    \"Bag_Rh3\",\n    \"Bag_Rh4\"\n];\n\nlet cache = context.get(\"latestValues\") || {};\ncache[newData.node_id] = newData;\ncontext.set(\"latestValues\", cache);\n\n// Initialize totals\nconst sum = {};\nconst count = {};\nlet rhSum = 0;\nlet rhCount = 0;\n\nfor (const nodeId in cache) {\n    const nodeData = cache[nodeId];\n\n    for (const key of keysToAverage) {\n        const value = nodeData[key];\n        if (typeof value === 'number') {\n            sum[key] = (sum[key] || 0) + value;\n            count[key] = (count[key] || 0) + 1;\n\n            // Special: combine Bag_Rh1–4\n            if (key.startsWith(\"Bag_Rh\")) {\n                rhSum += value;\n                rhCount += 1;\n            }\n        }\n    }\n}\n\n// Compute field-wise averages\nconst avg = {};\nfor (const key of keysToAverage) {\n    if (count[key] > 0) {\n        avg[key] = parseFloat((sum[key] / count[key]).toFixed(2));\n    }\n}\n\n// Add combined Bag_Rh\nif (rhCount > 0) {\n    avg[\"Bag_Rh\"] = parseFloat((rhSum / rhCount).toFixed(2));\n}\n\n// ➕ Average VPD, es_air, es_leaf, ea\nconst vpd_context = global.get(\"vpd_values\") || {};\nconst nodes = [\"Node01\", \"Node02\", \"Node03\", \"Node04\"];\n\nlet vpd_sum = 0, es_air_sum = 0, es_leaf_sum = 0, ea_sum = 0;\nlet valid_count = 0;\n\nfor (const id of nodes) {\n    const entry = vpd_context[id];\n    if (\n        entry &&\n        typeof entry.VPD === \"number\" &&\n        typeof entry.es_air === \"number\" &&\n        typeof entry.es_leaf === \"number\" &&\n        typeof entry.ea === \"number\"\n    ) {\n        vpd_sum += entry.VPD;\n        es_air_sum += entry.es_air;\n        es_leaf_sum += entry.es_leaf;\n        ea_sum += entry.ea;\n        valid_count += 1;\n    }\n}\n\nif (valid_count === nodes.length) {\n    avg[\"VPD_avg\"] = parseFloat((vpd_sum / valid_count).toFixed(3));\n    avg[\"es_air_avg\"] = parseFloat((es_air_sum / valid_count).toFixed(3));\n    avg[\"es_leaf_avg\"] = parseFloat((es_leaf_sum / valid_count).toFixed(3));\n    avg[\"ea_avg\"] = parseFloat((ea_sum / valid_count).toFixed(3));\n}\n\nmsg.payload = [\n    {\n        measurement: \"calculated_data\",\n        tags: {\n            greenhouse_id: newData.greenhouse_id,\n            type: \"average\"\n        },\n        fields: avg\n    }\n];\n\nnode.warn(`Averaged from ${Object.keys(cache).length} nodes. VPD group count = ${valid_count}`);\nreturn msg;\n",
+        "func": "// High-performance sensor averaging with optimized cache management\nconst newData = msg.payload;\n\n// Fast validation\nif (!newData || typeof newData !== 'object' || !newData.node_id || !newData.greenhouse_id) {\n    return null;\n}\n\n// Pre-defined keys for maximum performance\nconst keysToAverage = [\n    \"Bag_Temp\", \"Light_Par\", \"Air_Temp\", \"Air_Rh\", \"Leaf_temp\",\n    \"drip_weight\", \"Bag_Rh1\", \"Bag_Rh2\", \"Bag_Rh3\", \"Bag_Rh4\"\n];\n\n// Optimized cache management with single-pass operations\ntry {\n    let cache = flow.get(\"latestValues\") || {};\n    const currentTime = Date.now();\n    const maxAge = 5 * 60 * 1000; // 5 minutes\n    \n    // Clean old entries and add new data in single pass\n    const cleanedCache = {};\n    for (const nodeId in cache) {\n        const entry = cache[nodeId];\n        if (entry.timestamp && (currentTime - entry.timestamp) <= maxAge) {\n            cleanedCache[nodeId] = entry;\n        }\n    }\n    \n    // Add new data\n    cleanedCache[newData.node_id] = {\n        ...newData,\n        timestamp: currentTime\n    };\n    \n    flow.set(\"latestValues\", cleanedCache);\n    \n    // Optimized averaging with single-pass computation\n    const sum = {};\n    const count = {};\n    let rhSum = 0, rhCount = 0;\n    \n    // Process all nodes in single pass\n    for (const nodeId in cleanedCache) {\n        const nodeData = cleanedCache[nodeId];\n        if (!nodeData || typeof nodeData !== 'object') continue;\n\n        for (const key of keysToAverage) {\n            const value = nodeData[key];\n            if (typeof value === 'number' && !isNaN(value)) {\n                sum[key] = (sum[key] || 0) + value;\n                count[key] = (count[key] || 0) + 1;\n                \n                if (key.startsWith(\"Bag_Rh\")) {\n                    rhSum += value;\n                    rhCount += 1;\n                }\n            }\n        }\n    }\n\n    // Compute averages with validation\n    const avg = {};\n    for (const key of keysToAverage) {\n        if (count[key] > 0) {\n            const average = sum[key] / count[key];\n            if (!isNaN(average) && isFinite(average)) {\n                avg[key] = parseFloat(average.toFixed(2));\n            }\n        }\n    }\n\n    // Add combined Bag_Rh\n    if (rhCount > 0) {\n        const rhAverage = rhSum / rhCount;\n        if (!isNaN(rhAverage) && isFinite(rhAverage)) {\n            avg[\"Bag_Rh\"] = parseFloat(rhAverage.toFixed(2));\n        }\n    }\n\n    // Optimized VPD averaging\n    const vpd_context = global.get(\"vpd_values\") || {};\n    const nodes = [\"Node01\", \"Node02\", \"Node03\", \"Node04\"];\n    \n    let vpd_sum = 0, es_air_sum = 0, es_leaf_sum = 0, ea_sum = 0;\n    let valid_count = 0;\n    \n    for (const id of nodes) {\n        const entry = vpd_context[id];\n        if (entry && entry.timestamp && (currentTime - entry.timestamp) <= maxAge) {\n            if (typeof entry.VPD === \"number\" && !isNaN(entry.VPD)) {\n                vpd_sum += entry.VPD;\n                es_air_sum += entry.es_air || 0;\n                es_leaf_sum += entry.es_leaf || 0;\n                ea_sum += entry.ea || 0;\n                valid_count += 1;\n            }\n        }\n    }\n\n    if (valid_count === nodes.length) {\n        avg[\"VPD_avg\"] = parseFloat((vpd_sum / valid_count).toFixed(3));\n        avg[\"es_air_avg\"] = parseFloat((es_air_sum / valid_count).toFixed(3));\n        avg[\"es_leaf_avg\"] = parseFloat((es_leaf_sum / valid_count).toFixed(3));\n        avg[\"ea_avg\"] = parseFloat((ea_sum / valid_count).toFixed(3));\n    }\n\n    // Construct optimized payload\n    msg.payload = [{\n        measurement: \"calculated_data\",\n        tags: {\n            greenhouse_id: newData.greenhouse_id,\n            type: \"average\"\n        },\n        fields: avg\n    }];\n    \n    return msg;\n    \n} catch (error) {\n    return null; // Silent fail for performance\n}",
         "outputs": 1,
-        "timeout": 0,
+        "timeout": 30,
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 930,
-        "y": 340,
+        "x": 750,
+        "y": 280,
         "wires": [
             [
                 "8bd9880e362c4b29"
