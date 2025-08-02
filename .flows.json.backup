@@ -1,0 +1,226 @@
+[
+    {
+        "id": "d1d9b412263f5851",
+        "type": "tab",
+        "label": "Flow 1",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "1b094c419d097e01",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "192.168.20.1",
+        "port": 1883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": "120",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "0c4a20f07ca08fcd",
+        "type": "influxdb",
+        "hostname": "127.0.0.1",
+        "port": 8086,
+        "protocol": "http",
+        "database": "database",
+        "name": "influx_batch node",
+        "usetls": false,
+        "tls": "",
+        "influxdbVersion": "2.0",
+        "url": "http://localhost:8086",
+        "timeout": "60",
+        "rejectUnauthorized": false
+    },
+    {
+        "id": "4547a1438f843c82",
+        "type": "influxdb",
+        "hostname": "127.0.0.1",
+        "port": 8086,
+        "protocol": "http",
+        "database": "database",
+        "name": "",
+        "usetls": false,
+        "tls": "",
+        "influxdbVersion": "2.0",
+        "url": "http://localhost:8086",
+        "timeout": "60",
+        "rejectUnauthorized": false
+    },
+    {
+        "id": "bc849d2e7bf01c65",
+        "type": "mqtt in",
+        "z": "d1d9b412263f5851",
+        "name": "",
+        "topic": "greenhouse/+/node/+/data",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "1b094c419d097e01",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 350,
+        "y": 180,
+        "wires": [
+            [
+                "9ffc594d6035f994"
+            ]
+        ]
+    },
+    {
+        "id": "9ffc594d6035f994",
+        "type": "function",
+        "z": "d1d9b412263f5851",
+        "name": "Spliting data node wise",
+        "func": "const nodeId = msg.payload.node_id;\n\nlet output = [null, null, null, null, null];\n\nswitch (nodeId) {\n    case \"Node01\":\n        output[0] = msg;\n        break;\n    case \"Node02\":\n        output[1] = msg;\n        break;\n    case \"Node03\":\n        output[2] = msg;\n        break;\n    case \"Node04\":\n        output[3] = msg;\n        break;\n    case \"Node05\":\n        output[4] = msg;\n        break;\n    default:\n        node.warn(\"Unknown node_id: \" + nodeId);\n        break;\n}\n\nreturn output;\n\n",
+        "outputs": 5,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 630,
+        "y": 180,
+        "wires": [
+            [
+                "408fa21a2cfe3624",
+                "48ad17bfd84ebb60",
+                "437749256fc6b386"
+            ],
+            [
+                "408fa21a2cfe3624",
+                "48ad17bfd84ebb60",
+                "437749256fc6b386"
+            ],
+            [
+                "408fa21a2cfe3624",
+                "48ad17bfd84ebb60",
+                "437749256fc6b386"
+            ],
+            [
+                "408fa21a2cfe3624",
+                "48ad17bfd84ebb60",
+                "437749256fc6b386"
+            ],
+            [
+                "408fa21a2cfe3624"
+            ]
+        ]
+    },
+    {
+        "id": "408fa21a2cfe3624",
+        "type": "function",
+        "z": "d1d9b412263f5851",
+        "name": "Influx (data formate)",
+        "func": "const greenhouse = msg.payload.greenhouse_id;\nconst nodeId = msg.payload.node_id;\n\nconst sensorFields = { ...msg.payload };\ndelete sensorFields.greenhouse_id;\ndelete sensorFields.node_id;\ndelete sensorFields.timestamp;\n\nmsg.payload = [{\n    measurement: \"greenhouse_data_clean\",\n    tags: {\n        greenhouse_id: greenhouse,\n        node_id: nodeId\n    },\n    fields: sensorFields\n}];\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 920,
+        "y": 180,
+        "wires": [
+            [
+                "a756afd1789ae3bf"
+            ]
+        ]
+    },
+    {
+        "id": "a756afd1789ae3bf",
+        "type": "influxdb batch",
+        "z": "d1d9b412263f5851",
+        "influxdb": "0c4a20f07ca08fcd",
+        "precision": "",
+        "retentionPolicy": "",
+        "name": "influx batch ",
+        "database": "database",
+        "precisionV18FluxV20": "ms",
+        "retentionPolicyV18Flux": "",
+        "org": "iot-agriculture",
+        "bucket": "SensorData",
+        "x": 1230,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "48ad17bfd84ebb60",
+        "type": "function",
+        "z": "d1d9b412263f5851",
+        "name": "VPD writer",
+        "func": "const data = msg.payload;\n\nconst T_leaf = data.Leaf_temp;\nconst T_air = data.Air_Temp;\nconst RH = data.Air_Rh;\n\n// Validate input\nif (\n    typeof T_leaf !== 'number' ||\n    typeof T_air !== 'number' ||\n    typeof RH !== 'number' ||\n    !data.greenhouse_id ||\n    !data.node_id\n) {\n    node.error(\"Invalid input data\", msg);\n    return null;\n}\n\n// VPD calculation\nfunction calc_vpd(T_air, RH, T_leaf) {\n    const es_air = 0.6108 * Math.exp((17.27 * T_air) / (T_air + 237.3));\n    const es_leaf = 0.6108 * Math.exp((17.27 * T_leaf) / (T_leaf + 237.3));\n    const ea = (RH / 100) * es_air;\n    const vpd = Math.max(0, es_leaf - ea);\n    return parseFloat(vpd.toFixed(3));\n}\n\nconst vpd = calc_vpd(T_air, RH, T_leaf);\n\n// ➕ Store VPD in global context for averaging later\nlet vpd_context = global.get(\"vpd_values\") || {};\nvpd_context[data.node_id] = vpd;\nglobal.set(\"vpd_values\", vpd_context);\n\n// Build payload\nmsg.payload = [\n    {\n        measurement: \"calculated_data\",\n        tags: {\n            greenhouse_id: data.greenhouse_id,\n            node_id: data.node_id\n        },\n        fields: {\n            VPD: vpd,\n            Air_Temp: T_air,\n            Leaf_temp: T_leaf,\n            RH: RH\n        }\n    }\n];\n\nnode.warn(`Node=${data.node_id} | Leaf=${T_leaf} | Air=${T_air} | RH=${RH} | VPD=${vpd}`);\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 970,
+        "y": 260,
+        "wires": [
+            [
+                "8bd9880e362c4b29"
+            ]
+        ]
+    },
+    {
+        "id": "8bd9880e362c4b29",
+        "type": "influxdb batch",
+        "z": "d1d9b412263f5851",
+        "influxdb": "4547a1438f843c82",
+        "precision": "",
+        "retentionPolicy": "",
+        "name": "CaluclatedData Bucket",
+        "database": "database",
+        "precisionV18FluxV20": "ms",
+        "retentionPolicyV18Flux": "",
+        "org": "iot-agriculture",
+        "bucket": "CalculatedData",
+        "x": 1260,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "437749256fc6b386",
+        "type": "function",
+        "z": "d1d9b412263f5851",
+        "name": "Average Sensor Values",
+        "func": "const newData = msg.payload;\n\nconst keysToAverage = [\n    \"Bag_Temp\",\n    \"Light_Par\",\n    \"Air_Temp\",\n    \"Air_Rh\",\n    \"Leaf_temp\",\n    \"drip_weight\",\n    \"Bag_Rh1\",\n    \"Bag_Rh2\",\n    \"Bag_Rh3\",\n    \"Bag_Rh4\"\n];\n\nlet cache = context.get(\"latestValues\") || {};\ncache[newData.node_id] = newData;\ncontext.set(\"latestValues\", cache);\n\n// Initialize totals\nconst sum = {};\nconst count = {};\nlet rhSum = 0;\nlet rhCount = 0;\n\nfor (const nodeId in cache) {\n    const nodeData = cache[nodeId];\n\n    for (const key of keysToAverage) {\n        const value = nodeData[key];\n        if (typeof value === 'number') {\n            sum[key] = (sum[key] || 0) + value;\n            count[key] = (count[key] || 0) + 1;\n\n            // Special: collect Bag_Rh1–4 into combined Bag_Rh\n            if (key.startsWith(\"Bag_Rh\")) {\n                rhSum += value;\n                rhCount += 1;\n            }\n        }\n    }\n}\n\n// Compute field-wise averages\nconst avg = {};\nfor (const key of keysToAverage) {\n    if (count[key] > 0) {\n        avg[key] = parseFloat((sum[key] / count[key]).toFixed(2));\n    }\n}\n\n// Add combined Bag_Rh\nif (rhCount > 0) {\n    avg[\"Bag_Rh\"] = parseFloat((rhSum / rhCount).toFixed(2));\n}\n\n// ➕ Add average VPD (from global context)\nconst vpd_context = global.get(\"vpd_values\") || {};\nconst vpd_values = [\"Node01\", \"Node02\", \"Node03\", \"Node04\"]\n    .map(id => vpd_context[id])\n    .filter(v => typeof v === \"number\");\n\nif (vpd_values.length === 4) {\n    const vpd_avg = vpd_values.reduce((a, b) => a + b, 0) / 4;\n    avg[\"VPD_avg\"] = parseFloat(vpd_avg.toFixed(3));\n}\n\nmsg.payload = [\n    {\n        measurement: \"calculated_data\",\n        tags: {\n            greenhouse_id: newData.greenhouse_id,\n            type: \"average\"\n        },\n        fields: avg\n    }\n];\n\nnode.warn(`Averaged from ${Object.keys(cache).length} nodes. Bag_Rh count=${rhCount}, VPD_avg from ${vpd_values.length} nodes.`);\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 930,
+        "y": 340,
+        "wires": [
+            [
+                "8bd9880e362c4b29"
+            ]
+        ]
+    }
+]
