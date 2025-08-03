@@ -15,11 +15,9 @@ This is a **lean, mean, high-performance IoT data processing machine** designed 
 
 ### **Core Data Flow**
 ```
-MQTT Input → Data Router → VPD Calculator → CalculatedData Bucket
+MQTT Input → Data Router → Node Processors → SensorData Bucket
                 ↓
-            Data Formatter → SensorData Bucket
-                ↓
-            Average Calculator → CalculatedData Bucket
+            VPD Calculator → CalculatedData Bucket
 ```
 
 ### **Key Components**
@@ -27,29 +25,33 @@ MQTT Input → Data Router → VPD Calculator → CalculatedData Bucket
 1. **📡 MQTT Input Node**
    - Topic: `greenhouse/+/node/+/data`
    - Client ID: `node-red-greenhouse-client`
+   - Broker: `192.168.20.1:1883`
    - Clean session enabled
 
 2. **🔄 High-Performance Data Router**
    - Routes data by node ID (Node01-Node05)
    - Pre-allocated output arrays for maximum performance
    - Direct switch routing for optimal speed
+   - Handles 5 output paths efficiently
 
-3. **🌡️ VPD Calculator**
+3. **🌡️ Node-Specific Processors (5 nodes)**
+   - **Node01-Node04**: Process identical sensor sets
+   - **Node05**: Processes different sensor set (no Bag_Temp, Bag_Rh sensors)
+   - Each processor formats data for InfluxDB storage
+   - Validates numeric values before processing
+
+4. **🧮 VPD Calculator**
    - Calculates Vapor Pressure Deficit (VPD)
-   - Comprehensive input validation
-   - Single-pass computation for speed
-   - Stores results in global context for averaging
-
-4. **📊 Average Calculator**
-   - Real-time sensor averaging
-   - Optimized cache management
-   - 5-minute data freshness checks
-   - VPD averaging across all nodes
+   - Computes es_air, ea, es_leaf values
+   - Calculates average Bag_Rh from multiple sensors
+   - Comprehensive input validation with range checking
+   - Single-pass computation for maximum speed
 
 5. **💾 InfluxDB Storage**
    - **SensorData Bucket**: Raw sensor measurements
-   - **CalculatedData Bucket**: VPD and averaged values
+   - **CalculatedData Bucket**: VPD and calculated values
    - Optimized batch writing
+   - Proper tagging for efficient querying
 
 ## 🔧 **Technical Specifications**
 
@@ -62,16 +64,16 @@ MQTT Input → Data Router → VPD Calculator → CalculatedData Bucket
 
 ### **Reliability Features**
 - **Comprehensive validation** - All inputs validated before processing
-- **Range checking** - Temperature (-50°C to 80°C) and humidity (0-100%) bounds
+- **Range checking** - Temperature and humidity bounds enforced
 - **Silent fail strategy** - System continues even if individual messages fail
-- **Data freshness checks** - Automatic cleanup of stale data
 - **Error isolation** - One node failure doesn't affect others
+- **Data type validation** - Only numeric values processed
 
 ### **Data Processing**
 - **VPD Calculation**: `VPD = es_leaf - ea`
-- **Sensor Averaging**: Real-time across all nodes
+- **Sensor Processing**: Node-specific data formatting
 - **Data Formatting**: Optimized for InfluxDB
-- **Cache Management**: 5-minute freshness with single-pass operations
+- **Batch Operations**: Efficient database writes
 
 ## 📊 **Data Structure**
 
@@ -93,17 +95,29 @@ MQTT Input → Data Router → VPD Calculator → CalculatedData Bucket
 }
 ```
 
+### **Node05 Special Format**
+```json
+{
+  "greenhouse_id": "GH001",
+  "node_id": "Node05",
+  "Light_Par": 450.3,
+  "Air_Temp": 25.5,
+  "Air_Rh": 65.2,
+  "Rain": 0.0
+}
+```
+
 ### **Output Measurements**
 
 #### **SensorData Bucket**
-- **Measurement**: `greenhouse_data_clean`
-- **Tags**: `greenhouse_id`, `node_id`
-- **Fields**: All raw sensor values
+- **Measurement**: `sensor_data`
+- **Tags**: `greenhouse`, `node`, `sensor`
+- **Fields**: `value` (numeric sensor readings)
 
 #### **CalculatedData Bucket**
 - **Measurement**: `calculated_data`
-- **Tags**: `greenhouse_id`, `node_id` or `type: "average"`
-- **Fields**: VPD, es_air, es_leaf, ea, averaged sensor values
+- **Tags**: `greenhouse`, `node`, `metric`
+- **Fields**: `value` (calculated values: es_air, ea, es_leaf, VPD, Avg_Bag_Rh)
 
 ## 🚀 **Setup Instructions**
 
@@ -116,7 +130,6 @@ MQTT Input → Data Router → VPD Calculator → CalculatedData Bucket
 1. **Import the flow** into Node-RED
 2. **Configure InfluxDB connections**:
    - Host: `127.0.0.1:8086`
-   - Token: Your InfluxDB API token
    - Organization: `iot-agriculture`
    - Buckets: `SensorData`, `CalculatedData`
 
@@ -143,7 +156,7 @@ MQTT Input → Data Router → VPD Calculator → CalculatedData Bucket
 - **100% error isolation** - One failure doesn't affect others
 - **Comprehensive validation** - All inputs checked
 - **Silent fail strategy** - System continues despite errors
-- **Data freshness** - Automatic stale data cleanup
+- **Data type safety** - Only numeric values processed
 
 ## 🔍 **Monitoring & Debugging**
 
@@ -161,18 +174,18 @@ MQTT Input → Data Router → VPD Calculator → CalculatedData Bucket
 
 ### **Adding New Sensors**
 1. Add sensor fields to input data
-2. Update validation in VPD calculator
-3. Add to averaging keys in Average calculator
+2. Update validation in node processors
+3. Add to VPD calculator if needed
 
 ### **Scaling to More Nodes**
 1. Extend data router switch cases
-2. Update averaging logic
-3. Adjust cache management
+2. Add new node processor functions
+3. Update VPD calculator logic
 
 ### **Performance Tuning**
 - Adjust timeout values for your environment
-- Modify cache freshness periods
-- Optimize batch sizes for your data volume
+- Modify batch sizes for your data volume
+- Optimize InfluxDB write frequency
 
 ## 📋 **Dependencies**
 
@@ -189,6 +202,7 @@ MQTT Input → Data Router → VPD Calculator → CalculatedData Bucket
 - **📈 Scalable Architecture**: Modular, industrial-grade design
 - **💾 Minimal Resource Usage**: Optimized memory and CPU usage
 - **🎯 Zero Bloat**: Only essential functionality included
+- **🔧 7 Function Nodes**: Each with single, clear responsibility
 
 ## 🤝 **Support**
 
